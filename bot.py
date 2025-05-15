@@ -5,7 +5,7 @@ import ccxt
 import talib
 
 # Bot Token
-TOKEN = '7915865978:AAEcIjjwfzLJu-5RMNGW8BV0SzDIuee6GyA'
+TOKEN = 'Your_telegram_token'
 
 # Logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 # Borsaya Bağlantı (BingX API)
 exchange = ccxt.bingx({
-    'apiKey': '4qLGzeAiRO7vLjQmWk21lfFJpeP8wh7IIS60ERf0zAdSemRCYAhWjGDH6MfmCpU5WZ5t0mqIShG2cO4oJqQ',
-    'secret': '5yrz8BdFeppsi665Xkcu19CVfD7DOssphaZ0IGstg2TZfOCuQYQIEjBhsn3kFGrpX2cPhBMcSAU20yFhzSvA',
+    'apiKey': 'your_bingx_apikey',
+    'secret': 'your_bingx_secret',
 })
 
 # Kullanıcıya sunulacak seçenekler
