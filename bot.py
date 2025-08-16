@@ -1,100 +1,82 @@
-import logging
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-import ccxt
-import talib
+import os
+import time
+import random
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 
-# Bot Token
-TOKEN = 'Your_telegram_token'
+def load_cookies(driver, cookies_str):
+    driver.get("https://www.facebook.com/")
+    cookies = cookies_str.split("; ")
+    for c in cookies:
+        try:
+            name, value = c.split("=", 1)
+            driver.add_cookie({"name": name, "value": value, "domain": ".facebook.com"})
+        except Exception as e:
+            print("Cookie hatası:", e)
+    driver.refresh()
+    time.sleep(5)
 
-# Logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
+def share_post_to_group(driver, post_url, group_id, message=""):
+    # Gönderiye git
+    driver.get(post_url)
+    time.sleep(5)
 
-# Borsaya Bağlantı (BingX API)
-exchange = ccxt.bingx({
-    'apiKey': 'your_bingx_apikey',
-    'secret': 'your_bingx_secret',
-})
+    try:
+        # Paylaş butonunu bul
+        share_button = driver.find_element(By.XPATH, "//div[@aria-label='Paylaş']")
+        share_button.click()
+        time.sleep(3)
 
-# Kullanıcıya sunulacak seçenekler
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text(
-        "Merhaba! Trading botumuza hoş geldiniz.\n\n"
-        "Analiz yapmak için aşağıdaki seçeneklerden birini seçebilirsiniz:\n\n"
-        "/set_timedelta - Zaman dilimini seçin\n"
-        "/set_rsi - RSI eşik değerini belirleyin\n"
-        "/set_macd - MACD parametrelerini belirleyin\n"
-        "/set_volatility - Volatilite kriterlerini ayarlayın\n"
-    )
+        # "Bir grupta paylaş" seçeneğini seç
+        in_group_option = driver.find_element(By.XPATH, "//span[contains(text(),'Bir grupta paylaş')]")
+        in_group_option.click()
+        time.sleep(3)
 
-# Zaman Dilimi Seçimi
-def set_timedelta(update: Update, context: CallbackContext):
-    update.message.reply_text(
-        "Zaman dilimini seçin:\n"
-        "1. 15 Dakika\n"
-        "2. 1 Saat\n"
-        "3. 4 Saat\n"
-        "4. 1 Gün"
-    )
+        # Grup adı/ID gir
+        group_input = driver.find_element(By.XPATH, "//input[@aria-label='Grup adı']")
+        group_input.send_keys(group_id)
+        time.sleep(2)
 
-# RSI Seçimi
-def set_rsi(update: Update, context: CallbackContext):
-    update.message.reply_text(
-        "RSI eşiğini seçin:\n"
-        "1. Aşırı Satım (30 altı)\n"
-        "2. Aşırı Alım (70 üstü)"
-    )
+        # Mesaj ekle (opsiyonel)
+        if message:
+            text_box = driver.find_element(By.XPATH, "//div[@role='textbox']")
+            text_box.send_keys(message)
+            time.sleep(2)
 
-# MACD Seçimi
-def set_macd(update: Update, context: CallbackContext):
-    update.message.reply_text(
-        "MACD parametrelerini seçin:\n"
-        "1. Kısa vadeli MACD'nin uzun vadeli MACD'yi yukarıya kesmesi (alım sinyali)\n"
-    )
+        # Paylaş butonu
+        post_button = driver.find_element(By.XPATH, "//div[@aria-label='Gönder']")
+        post_button.click()
+        time.sleep(5)
 
-# Volatilite Seçimi
-def set_volatility(update: Update, context: CallbackContext):
-    update.message.reply_text(
-        "Volatilite kriterlerini ayarlayın:\n"
-        "1. Bollinger Bands\n"
-        "2. Fiyat Dalgalanması"
-    )
+        print(f"✅ Paylaşıldı: {group_id}")
+    except Exception as e:
+        print(f"⚠️ Hata: {group_id} -> {e}")
 
-# Verileri Analiz Etme (Kısa Örnek)
-def analyze(update: Update, context: CallbackContext):
-    symbol = "BTC/USDT"
-    timeframe = '1h'  # Örneğin 1 saatlik zaman dilimi
+if __name__ == "__main__":
+    cookies_str = os.getenv("FB_COOKIES")
+    post_url = os.getenv("FB_POST_URL")  # paylaşmak istediğin gönderi linki
+    groups = os.getenv("FB_GROUPS").split(",")
+    message = os.getenv("FB_MESSAGE", "")  # opsiyonel mesaj
 
-    # Binance'den veri çekme
-    ohlcv = exchange.fetch_ohlcv(symbol, timeframe)
-    close_prices = [x[4] for x in ohlcv]
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-    # RSI hesaplama
-    rsi = talib.RSI(close_prices, timeperiod=14)
-    last_rsi = rsi[-1]
+    driver = webdriver.Chrome(options=chrome_options)
 
-    # Eğer RSI 30'un altında ise, alım sinyali
-    if last_rsi < 30:
-        update.message.reply_text(f"RSI: {last_rsi} - Aşırı Satım! Potansiyel alım sinyali.")
-    else:
-        update.message.reply_text(f"RSI: {last_rsi} - Durum: Normal")
+    # Cookie ile giriş
+    load_cookies(driver, cookies_str)
 
-# Main
-def main():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+    # Gruplara paylaş
+    for g in groups:
+        group_id = g.strip().split("/")[-1]  # URL'den ID/alphabetic name çek
+        share_post_to_group(driver, post_url, group_id, message)
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("set_timedelta", set_timedelta))
-    dp.add_handler(CommandHandler("set_rsi", set_rsi))
-    dp.add_handler(CommandHandler("set_macd", set_macd))
-    dp.add_handler(CommandHandler("set_volatility", set_volatility))
-    dp.add_handler(CommandHandler("analyze", analyze))
+        # Gruplar arası random bekleme
+        wait_seconds = random.randint(10, 50)
+        print(f"{wait_seconds} saniye bekleniyor...")
+        time.sleep(wait_seconds)
 
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
+    driver.quit()
